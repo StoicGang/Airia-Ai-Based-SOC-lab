@@ -259,15 +259,12 @@ Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
 ---
 
 ## 🙏 Credits
 
 - [Airia AI Platform](https://airia.com) — AI agent orchestration
 - [Wireshark / tshark](https://wireshark.org) — Network packet capture
+- [Royden Rahul Rebello](https://www.linkedin.com/in/roydensprofile/) — Youtube Guidance
 - [MITRE ATT&CK](https://attack.mitre.org) — Threat framework
 - [SwiftOnSecurity Sysmon Config](https://github.com/SwiftOnSecurity/sysmon-config) — Endpoint detection reference
