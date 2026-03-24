@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Alert {{ alert.alert_id }} — SOC Lab</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --blue: #58a6ff;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', sans-serif;
+            padding: 20px;
+            max-width: 900px;
+        }
+
+        h1 {
+            color: var(--blue);
+            margin-bottom: 6px;
+        }
+
+        .back {
+            color: var(--blue);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        .card h3 {
+            color: var(--blue);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .field {
+            margin: 6px 0;
+            font-size: 0.9rem;
+        }
+
+        .field .label {
+            color: var(--muted);
+            width: 180px;
+            display: inline-block;
+        }
+
+        ol {
+            padding-left: 20px;
+        }
+
+        ol li {
+            margin: 6px 0;
+            font-size: 0.9rem;
+        }
+
+        pre {
+            background: #0d1117;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+
+<body>
+    <a class="back" href="/">← Back to Dashboard</a>
+    <h1 style="margin-top:12px">{{ alert.alert_id }}</h1>
+    <p style="color:var(--muted);font-size:0.85rem">{{ alert.timestamp }}</p>
+
+    <div class="card">
+        <h3>Detection Summary</h3>
+        <div class="field"><span class="label">Attack Type</span>{{ alert.attack_type }}</div>
+        <div class="field"><span class="label">Source IP</span>{{ alert.src_ip }}</div>
+        <div class="field"><span class="label">Destination</span>{{ alert.dst_ip }}</div>
+        <div class="field"><span class="label">Protocol</span>{{ alert.protocol }}</div>
+        <div class="field"><span class="label">Packet Count</span>{{ alert.packet_count }}</div>
+        <div class="field"><span class="label">Threshold</span>{{ alert.threshold }}</div>
+    </div>
+
+    <div class="card">
+        <h3>AI Risk Assessment</h3>
+        <div class="field"><span class="label">Risk Level</span>{{ alert.risk_level }}</div>
+        <div class="field"><span class="label">Risk Score</span>{{ alert.risk_score }}/100</div>
+        <div class="field"><span class="label">Confidence</span>{{ alert.confidence_level }}</div>
+        <div class="field"><span class="label">Escalate</span>{{ 'Yes ⚠️' if alert.escalation_required else 'No ✅' }}
+        </div>
+        <div class="field"><span class="label">MITRE Technique</span>{{ alert.mitre_technique_id }} — {{
+            alert.mitre_technique_name }}</div>
+        <div class="field"><span class="label">MITRE Tactic</span>{{ alert.mitre_tactic }}</div>
+    </div>
+
+    <div class="card">
+        <h3>Analysis</h3>
+        <p style="font-size:0.9rem">{{ alert.analysis_reasoning }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Executive Summary</h3>
+        <p style="font-size:0.9rem">{{ alert.executive_summary }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Recommended Actions</h3>
+        <ol>
+            {% for action in alert.recommended_actions %}
+            <li>{{ action }}</li>
+            {% endfor %}
+        </ol>
+    </div>
+</body>
+
+</html>

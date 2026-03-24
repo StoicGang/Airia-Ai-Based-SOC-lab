@@ -1,0 +1,50 @@
+# SOC Lab Detection Rules
+# Phase 2 | Frozen Baseline
+# Each rule defines one attack type to detect.
+
+rules:
+
+  - id: RULE-001
+    name: "ICMP Flood"
+    description: "High-volume ICMP flood — potential DoS or network stress test"
+    protocol: icmp
+    tshark_filter: "icmp and dst host {target_ip}"
+    threshold: 40
+    count_field: src_ip        # count packets per source IP
+    time_window: 100
+    severity: HIGH
+    mitre_id: T1498
+    mitre_name: "Network Denial of Service"
+    mitre_tactic: "Impact"
+    alert_type: "ICMP Flood Detected"
+    enabled: true
+
+  - id: RULE-002
+    name: "TCP SYN Flood"
+    description: "SYN flag flood — half-open connections exhausting server resources"
+    protocol: tcp
+    tshark_filter: "tcp[tcpflags] & tcp-syn != 0 and dst host {target_ip}"
+    threshold: 80
+    count_field: src_ip
+    time_window: 60
+    severity: HIGH
+    mitre_id: T1498.001
+    mitre_name: "Direct Network Flood"
+    mitre_tactic: "Impact"
+    alert_type: "TCP SYN Flood Detected"
+    enabled: true
+
+  - id: RULE-003
+    name: "Port Scan"
+    description: "Sequential connection attempts to multiple ports — reconnaissance"
+    protocol: tcp
+    tshark_filter: "tcp and dst host {target_ip}"
+    threshold: 15
+    count_field: dst_port      # count unique destination ports, not packets
+    time_window: 30
+    severity: MEDIUM
+    mitre_id: T1046
+    mitre_name: "Network Service Scanning"
+    mitre_tactic: "Discovery"
+    alert_type: "Port Scan Detected"
+    enabled: true

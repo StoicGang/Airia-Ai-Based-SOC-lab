@@ -48,9 +48,13 @@ Keep these rules in mind:
 
 ### 5. Test your changes
 ```bash
-sudo python scripts/soc_monitor.py
+# Run the Phase 2 monitor (default rule: ICMP flood)
+sudo python scripts/soc_monitor_v2.py
+
+# Run unit tests
+pytest tests/ -v
 ```
-Confirm the full pipeline runs without errors.
+Confirm the full pipeline runs without errors and all tests pass.
 
 ### 6. Commit and push
 ```bash
@@ -68,14 +72,16 @@ git push origin feature/your-feature-name
 
 ## 💡 Ideas for Contributions
 
-| Area | Ideas |
-|------|-------|
-| Detection | Add TCP SYN flood, UDP flood, or ARP spoofing detection |
-| Output | Add email or Slack alert when escalation is triggered |
-| Storage | Add SQLite database for storing alert history |
-| Dashboard | Build a Flask web UI for the logs |
-| Docs | Improve setup guide, add screenshots, translate to other languages |
-| Tests | Add unit tests for `analyze_traffic()` and `generate_alert()` |
+| Area | Status | Ideas |
+|------|--------|-------|
+| Detection | ✅ Phase 2 | ICMP flood, TCP SYN flood, port scan — add UDP flood or ARP spoofing via new YAML rule |
+| Storage | ✅ Phase 2 | SQLite persistence complete — add alert search or export to CSV/JSON |
+| Dashboard | ✅ Phase 2 | Flask dashboard live — add charts, SSE live updates, or IOC timeline view |
+| Tests | ✅ Phase 2 | DB tests complete — add tests for `detection/rules.py` and `dashboard/app.py` |
+| Output | 📋 Open | Add email or Slack alert when escalation is triggered |
+| SIEM | 📋 Phase 3 | Wazuh integration — Docker deployment, Windows agent, custom rules |
+| Case Mgmt | 📋 Phase 4 | TheHive + Cortex + MISP stack |
+| Docs | 📋 Open | Improve setup guide, add screenshots, translate to other languages |
 
 ---
 
