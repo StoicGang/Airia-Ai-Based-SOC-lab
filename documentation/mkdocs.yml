@@ -1,0 +1,35 @@
+site_name: AI-Powered SOC Lab — Setup Guide
+site_description: Step-by-step guide to build an AI-powered Security Operations Center from scratch
+site_url: https://stoicgang.github.io/Airia-Ai-Based-SOC-lab/
+repo_url: https://github.com/StoicGang/Airia-Ai-Based-SOC-lab
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: deep purple
+    accent: cyan
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Prerequisites: prerequisites.md
+  - Phase 1 — Base Pipeline: phase-1.md
+  - Phase 2 — Detection Engine + Dashboard: phase-2.md
+  - Phase 3 — Wazuh SIEM Integration: phase-3.md
+  - Troubleshooting: troubleshooting.md
+  - FAQ: faq.md
+
+markdown_extensions:
+  - admonitions
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true

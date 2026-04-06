@@ -1,19 +1,20 @@
-# ─────────────────────────────────────────────────────────────
-# SOC Lab — .gitignore
-# ─────────────────────────────────────────────────────────────
-
 # ── Credentials — NEVER commit ───────────────────────────────
 config/.env
 .env
 
-# ── Captured traffic files ────────────────────────────────────
-logs/
-*.pcap
-*.csv
+# ── Runtime data ──────────────────────────────────────────────
+logs/*.pcap
+logs/*.csv
+logs/*.json
+!logs/.gitkeep
+*.db
 
-# ── Generated reports ─────────────────────────────────────────
+# ── Generated files ───────────────────────────────────────────
 alert.json
 soc_report.json
+
+# ── Backup files ──────────────────────────────────────────────
+*.bak
 
 # ── Python ───────────────────────────────────────────────────
 venv/
@@ -25,6 +26,9 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# ── Wazuh generated certs ────────────────────────────────────
+docker/config/wazuh_indexer_ssl_certs/
 
 # ── OS ───────────────────────────────────────────────────────
 .DS_Store
@@ -38,8 +42,6 @@ desktop.ini
 *.swo
 *~
 
-# ── others ────────────────────────────────────────────────────
-Dev Docs/
-tests/
-
+# ── others ──────────────────────────────────────────────────
 AGENT_BRAIN.md
+Dev Docs/

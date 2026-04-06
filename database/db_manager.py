@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 database/db_manager.py — SQLite persistence layer for SOC Lab.
-Phase: 2 | Status: Baseline locked
+Phase: 3 | Status: Updated for Wazuh integration
 
 All database operations go through this module.
 Never write raw SQL in other modules — always call these functions.
@@ -10,12 +10,13 @@ Never write raw SQL in other modules — always call these functions.
 import sqlite3
 import json
 import os
+import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / "config" / ".env")
 
-DB_PATH     = os.getenv("DB_PATH", "/home/kali/soc-lab/database/soc_lab.db")
+DB_PATH = os.getenv("DB_PATH", str(Path(__file__).parent / "soc_lab.db"))
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 
@@ -29,7 +30,7 @@ def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")   # Better concurrent performance
+    conn.execute("PRAGMA journal_mode = WAL")
     return conn
 
 
@@ -87,9 +88,10 @@ def complete_session(session_id: str, total_packets: int,
 def save_alert(alert: dict, soc_report: dict, session_id: str) -> bool:
     """
     Persist a complete alert + AI SOC report to the database.
+    Used by Phase 2 soc_monitor_v2.py pipeline.
 
     Args:
-        alert:      The JSON alert dict sent to Airia
+        alert: The JSON alert dict sent to Airia
         soc_report: The parsed AI analysis response from Airia
         session_id: ID of the current monitoring session
 
@@ -156,14 +158,181 @@ def save_alert(alert: dict, soc_report: dict, session_id: str) -> bool:
         conn.close()
 
 
+def save_wazuh_alert(data: dict) -> dict:
+    """
+    Persist a Wazuh alert (from custom-w2airia integration) to the database.
+    Maps Wazuh normalized format to the existing alerts schema.
+
+    Args:
+        data: Normalized alert dict from custom-w2airia.py
+
+    Returns:
+        dict with 'ok' bool and 'alert_id' or 'error' string.
+    """
+    # Generate SOC-style alert ID
+    alert_id = f"SOC-W-{uuid.uuid4().hex[:8].upper()}"
+
+    rule = data.get("rule", {})
+    agent = data.get("agent", {})
+    mitre = data.get("mitre_attack", {})
+    vuln = data.get("vulnerability", {})
+    fim = data.get("fim", {})
+    level = rule.get("level", 0)
+
+    # Map severity to risk score
+    severity_score = {
+        "LOW": 20, "MEDIUM": 45, "HIGH": 70, "CRITICAL": 95
+    }
+    risk_score = severity_score.get(data.get("severity", "LOW"), 20)
+
+    # Build attack type description
+    attack_type = rule.get("description", "Wazuh Alert")
+    groups = rule.get("groups", [])
+    if groups:
+        threat_class = " | ".join(groups[:3])
+    else:
+        threat_class = data.get("severity", "Unknown")
+
+    # Build summary
+    summary_parts = [rule.get("description", "")]
+    if agent.get("name"):
+        summary_parts.append(f"Agent: {agent['name']}")
+    if fim.get("path"):
+        summary_parts.append(f"File: {fim['path']} ({fim.get('event', 'modified')})")
+    if vuln.get("cve"):
+        summary_parts.append(f"CVE: {vuln['cve']}")
+    executive_summary = " — ".join(summary_parts)
+
+    # MITRE fields
+    mitre_ids = mitre.get("id", [])
+    mitre_techs = mitre.get("technique", [])
+    mitre_tactics = mitre.get("tactic", [])
+
+    conn = get_connection()
+    try:
+        conn.execute("""
+            INSERT INTO alerts (
+                alert_id, timestamp, src_ip, dst_ip,
+                attack_type, protocol, packet_count, threshold,
+                risk_score, risk_level, threat_classification,
+                mitre_technique_id, mitre_technique_name, mitre_tactic,
+                escalation_required, confidence_level,
+                executive_summary, analysis_reasoning,
+                recommended_actions, full_report_json,
+                rule_id, session_id
+            ) VALUES (
+                ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, ?
+            )
+        """, (
+            alert_id,
+            data.get("timestamp", ""),
+            data.get("source_ip") or agent.get("ip", "0.0.0.0"),
+            data.get("destination_ip") or "192.168.56.20",
+            attack_type,
+            "TCP",
+            0,
+            level,
+            risk_score,
+            data.get("severity", "LOW"),
+            threat_class,
+            mitre_ids[0] if mitre_ids else None,
+            mitre_techs[0] if mitre_techs else None,
+            mitre_tactics[0] if mitre_tactics else None,
+            1 if level >= 10 else 0,
+            f"Wazuh Rule {rule.get('id', '?')} (Level {level})",
+            executive_summary,
+            data.get("full_log", ""),
+            json.dumps([]),
+            json.dumps(data),
+            f"WAZUH-{rule.get('id', '0')}",
+            "wazuh-live",
+        ))
+        conn.commit()
+
+        # Save IOCs
+        _save_wazuh_iocs(conn, alert_id, data)
+
+        print(f"[DB] Wazuh alert saved: {alert_id}")
+        return {"ok": True, "alert_id": alert_id}
+
+    except sqlite3.IntegrityError as e:
+        print(f"[DB] Wazuh alert duplicate: {e}")
+        return {"ok": False, "error": "duplicate"}
+    except Exception as e:
+        print(f"[DB] Wazuh alert error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def _save_wazuh_iocs(conn: sqlite3.Connection, alert_id: str, data: dict) -> None:
+    """Extract and save IOCs from a Wazuh alert."""
+    agent = data.get("agent", {})
+    iocs = []
+
+    # Source IP
+    src = data.get("source_ip") or agent.get("ip")
+    if src and src != "0.0.0.0":
+        iocs.append(("ip", src))
+
+    # Destination IP
+    dst = data.get("destination_ip")
+    if dst:
+        iocs.append(("ip", dst))
+
+    # Agent IP
+    agent_ip = agent.get("ip")
+    if agent_ip and agent_ip not in [src, dst, "0.0.0.0"]:
+        iocs.append(("ip", agent_ip))
+
+    # FIM path
+    fim = data.get("fim", {})
+    if fim.get("path"):
+        iocs.append(("file", fim["path"]))
+
+    # CVE
+    vuln = data.get("vulnerability", {})
+    if vuln.get("cve"):
+        iocs.append(("cve", vuln["cve"]))
+
+    for ioc_type, ioc_value in iocs:
+        if not ioc_value:
+            continue
+        try:
+            existing = conn.execute(
+                "SELECT id, hit_count FROM iocs WHERE alert_id=? AND ioc_value=?",
+                (alert_id, ioc_value)
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE iocs SET hit_count=hit_count+1, last_seen=datetime('now') WHERE id=?",
+                    (existing["id"],)
+                )
+            else:
+                conn.execute("""
+                    INSERT INTO iocs (alert_id, ioc_type, ioc_value, first_seen, last_seen)
+                    VALUES (?, ?, ?, datetime('now'), datetime('now'))
+                """, (alert_id, ioc_type, ioc_value))
+        except Exception:
+            pass  # Don't fail the whole alert for IOC issues
+
+    conn.commit()
+
+
 def _save_iocs(conn: sqlite3.Connection, alert: dict) -> None:
     """Extract and save IOCs from alert. Called internally by save_alert."""
     alert_id = alert.get("alert_id")
-    now      = "datetime('now')"
 
     iocs = [
-        ("ip",       alert.get("indicator_value")),
-        ("ip",       alert.get("destination_ip")),
+        ("ip", alert.get("indicator_value")),
+        ("ip", alert.get("destination_ip")),
         ("protocol", alert.get("protocol")),
     ]
 
@@ -193,8 +362,8 @@ def _save_iocs(conn: sqlite3.Connection, alert: dict) -> None:
 
 def get_recent_alerts(limit: int = 20) -> list[dict]:
     """Return the most recent alerts, newest first."""
-    conn  = get_connection()
-    rows  = conn.execute("""
+    conn = get_connection()
+    rows = conn.execute("""
         SELECT alert_id, timestamp, src_ip, dst_ip, attack_type,
                risk_score, risk_level, mitre_technique_id,
                escalation_required, executive_summary, protocol
@@ -209,14 +378,14 @@ def get_recent_alerts(limit: int = 20) -> list[dict]:
 def get_alert_by_id(alert_id: str) -> dict | None:
     """Return full alert detail including AI report."""
     conn = get_connection()
-    row  = conn.execute(
+    row = conn.execute(
         "SELECT * FROM alerts WHERE alert_id = ?", (alert_id,)
     ).fetchone()
     conn.close()
     if row:
         result = dict(row)
         result["recommended_actions"] = json.loads(result.get("recommended_actions") or "[]")
-        result["full_report_json"]    = json.loads(result.get("full_report_json") or "{}")
+        result["full_report_json"] = json.loads(result.get("full_report_json") or "{}")
         return result
     return None
 
@@ -247,12 +416,12 @@ def get_stats() -> dict:
 
     conn.close()
     return {
-        "total_alerts":   total,
+        "total_alerts": total,
         "avg_risk_score": round(avg_risk or 0, 1),
-        "escalations":    escalations,
-        "by_risk_level":  {r["risk_level"]: r["count"] for r in by_risk},
+        "escalations": escalations,
+        "by_risk_level": {r["risk_level"]: r["count"] for r in by_risk},
         "by_attack_type": [dict(r) for r in by_type],
-        "top_src_ips":    [dict(r) for r in top_ips],
+        "top_src_ips": [dict(r) for r in top_ips],
     }
 
 
@@ -275,3 +444,5 @@ if __name__ == "__main__":
     stats = get_stats()
     print(f"[DB] Total alerts: {stats['total_alerts']}")
     print(f"[DB] Avg risk score: {stats['avg_risk_score']}")
+
+

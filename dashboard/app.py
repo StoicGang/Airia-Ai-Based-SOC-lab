@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 dashboard/app.py — Flask web dashboard for SOC Lab.
-Phase: 2 | Status: Baseline locked
+Phase: 2 | 
 
 Run: python dashboard/app.py
 Access: http://192.168.56.20:5000
@@ -12,11 +12,11 @@ import os
 import sys
 from pathlib import Path
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from database.db_manager import get_recent_alerts, get_alert_by_id, get_stats, get_all_iocs, init_db
+from database.db_manager import get_recent_alerts, get_alert_by_id, get_stats, get_all_iocs, init_db, save_wazuh_alert
 
 load_dotenv(Path(__file__).parent.parent / "config" / ".env")
 
@@ -55,13 +55,31 @@ def api_iocs():
     return jsonify(get_all_iocs(50))
 
 
+@app.route("/api/alerts/ingest", methods=["POST"])
+def ingest_alert():
+    """Receive Wazuh alerts from custom-w2airia integration."""
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 400
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Invalid or empty JSON body"}), 400
+    if "rule" not in data and "source" not in data:
+        return jsonify({"error": "Missing required fields"}), 400
+    result = save_wazuh_alert(data)
+    if result.get("ok"):
+        return jsonify({"status": "ok", "alert_id": result["alert_id"]}), 201
+    else:
+        code = 409 if result.get("error") == "duplicate" else 500
+        return jsonify({"status": "error", "error": result.get("error")}), code
+
+
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "SOC Lab Dashboard v2"})
+    return jsonify({"status": "ok", "service": "SOC Lab Dashboard v3"})
 
 
 if __name__ == "__main__":
     init_db()
     print(f"\n🛡️  SOC Lab Dashboard starting at http://{HOST}:{PORT}")
-    print(f"    Access from host: http://192.168.56.20:{PORT}\n")
+    print(f"  Access from host: http://<YOUR-KALI-IP>:{PORT}\n")
     app.run(host=HOST, port=PORT, debug=False)

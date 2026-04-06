@@ -1,0 +1,3 @@
+# This file keeps the logs/ folder tracked by git.
+# All actual log files (*.pcap, *.csv, *.json) are in .gitignore
+# and will never be committed.

@@ -18,11 +18,11 @@ capture        file           analysis       .json          response
 VirtualBox Host-Only Network: 192.168.56.0/24
 
 ┌─────────────────────┐         ┌──────────────────────┐
-│   Windows 10 VM     │         │    Kali Linux VM      │
+│   Arch Linux VM     │         │    Kali Linux VM      │
 │   192.168.56.10     │ ──────► │    192.168.56.20      │
 │                     │  ICMP   │                       │
 │   Attacker          │  flood  │   SOC Monitor + Target│
-│   ping -n 500       │         │   tshark on eth0      │
+│   ping -c 500       │         │   tshark on eth0      │
 └─────────────────────┘         └──────────┬────────────┘
                                             │
                                             │ HTTPS POST

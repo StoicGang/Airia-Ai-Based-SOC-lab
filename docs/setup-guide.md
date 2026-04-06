@@ -32,12 +32,12 @@ DHCP: Enabled
 - Network Adapter 1: NAT
 - Network Adapter 2: Host-only Adapter
 
-### Windows 10 VM
-- Download ISO: https://microsoft.com/software-download/windows10
+### Arch Linux VM
+- Download ISO: https://archlinux.org/download/
 - New VM: 2048 MB RAM, 40 GB disk
 - Network Adapter 1: NAT
 - Network Adapter 2: Host-only Adapter
-- Install Windows 10 Pro (no product key needed for lab use)
+- Install Arch Linux (base install is sufficient for the lab)
 
 ---
 
@@ -58,21 +58,32 @@ iface eth0 inet static
 sudo systemctl restart networking
 ```
 
-### Windows — set Ethernet 2 (host-only adapter) to 192.168.56.10
+### Arch Linux — set enp0s3 (host-only adapter) to 192.168.56.10
+
+Create the systemd-networkd config file:
+```bash
+sudo nano /etc/systemd/network/20-hostonly.network
 ```
-Control Panel → Network Connections → Ethernet 2
-→ Properties → IPv4 → Manual
-IP: 192.168.56.10   Mask: 255.255.255.0
+Add:
+```ini
+[Match]
+Name=enp0s3
+
+[Network]
+Address=192.168.56.10/24
+```
+```bash
+sudo systemctl enable --now systemd-networkd
 ```
 
 ### Verify both VMs can reach each other
 ```bash
 # From Kali:
-ping 192.168.56.10 -c 4   # Should reach Windows
+ping 192.168.56.10 -c 4   # Should reach Arch Linux
 ```
-```cmd
-rem From Windows:
-ping 192.168.56.20 -n 4   :: Should reach Kali
+```bash
+# From Arch Linux:
+ping 192.168.56.20 -c 4   # Should reach Kali
 ```
 
 ---
@@ -137,9 +148,9 @@ sudo python scripts/soc_monitor.py
 
 Wait for: `[+] Capturing on eth0 for 100s...`
 
-### Immediately — Windows VM (launch attack)
-```cmd
-ping 192.168.56.20 -n 200 -l 64
+### Immediately — Arch Linux VM (launch attack)
+```bash
+ping 192.168.56.20 -c 200 -s 64
 ```
 
 ### After 100 seconds — Kali shows the AI SOC report automatically.

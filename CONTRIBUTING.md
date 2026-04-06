@@ -79,7 +79,7 @@ git push origin feature/your-feature-name
 | Dashboard | ✅ Phase 2 | Flask dashboard live — add charts, SSE live updates, or IOC timeline view |
 | Tests | ✅ Phase 2 | DB tests complete — add tests for `detection/rules.py` and `dashboard/app.py` |
 | Output | 📋 Open | Add email or Slack alert when escalation is triggered |
-| SIEM | 📋 Phase 3 | Wazuh integration — Docker deployment, Windows agent, custom rules |
+| SIEM | 📋 Phase 3 | Wazuh integration — Docker deployment, Arch Linux agent, custom rules |
 | Case Mgmt | 📋 Phase 4 | TheHive + Cortex + MISP stack |
 | Docs | 📋 Open | Improve setup guide, add screenshots, translate to other languages |
 

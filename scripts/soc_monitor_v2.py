@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 scripts/soc_monitor_v2.py — Phase 2 pipeline.
-Phase: 2 
 
 Replaces soc_monitor.py. Adds:
   - YAML-driven detection rules
@@ -11,9 +10,9 @@ Replaces soc_monitor.py. Adds:
   - --list flag to show available rules
 
 Usage:
-  sudo python scripts/soc_monitor_v2.py             # runs RULE-001 (default)
-  sudo python scripts/soc_monitor_v2.py --rule RULE-002
-  sudo python scripts/soc_monitor_v2.py --list
+    sudo python scripts/soc_monitor_v2.py              # RULE-001 (default)
+    sudo python scripts/soc_monitor_v2.py --rule RULE-002
+    sudo python scripts/soc_monitor_v2.py --list
 """
 
 import argparse
@@ -27,23 +26,27 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# ── Path Setup ────────────────────────────────────────────────
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
 
-from database.db_manager  import init_db, save_alert, create_session, complete_session
-from detection.rules      import load_rules, get_rule_by_id, run_rule
+from database.db_manager import init_db, save_alert, create_session, complete_session
+from detection.rules import load_rules, get_rule_by_id, run_rule
 
-load_dotenv(Path(__file__).parent.parent / "config" / ".env")
+load_dotenv(BASE_DIR / "config" / ".env")
 
-# ── Config ────────────────────────────────────────────────────────────────────
-AIRIA_API_URL    = os.getenv("AIRIA_API_URL")
-AIRIA_API_KEY    = os.getenv("AIRIA_API_KEY")
-DESTINATION_IP   = os.getenv("DESTINATION_IP",   "192.168.56.20")
+# ── Config ────────────────────────────────────────────────────
+AIRIA_API_URL = os.getenv("AIRIA_API_URL")
+AIRIA_API_KEY = os.getenv("AIRIA_API_KEY")
+DESTINATION_IP = os.getenv("DESTINATION_IP", "192.168.56.20")
 DESTINATION_HOST = os.getenv("DESTINATION_HOST", "Kali-SOC-Monitor")
-INTERFACE        = os.getenv("INTERFACE",        "eth0")
-PCAP_FILE        = os.getenv("PCAP_FILE")
-CSV_FILE         = os.getenv("CSV_FILE")
-ALERT_FILE       = os.getenv("ALERT_FILE")
+INTERFACE = os.getenv("INTERFACE", "eth0")
+
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+PCAP_FILE = os.getenv("PCAP_FILE", str(LOG_DIR / "traffic.pcap"))
+CSV_FILE = os.getenv("CSV_FILE", str(LOG_DIR / "traffic.csv"))
 
 
 def validate_config() -> None:
@@ -76,35 +79,33 @@ def parse_airia_response(data: dict) -> dict:
 
 
 def build_alert(rule: dict, src_ip: str, count: int) -> dict:
-    """Build structured alert dict from rule + detection results."""
     return {
-        "alert_id":         f"SOC-{uuid.uuid4().hex[:8].upper()}",
-        "alert_type":       rule["alert_type"],
-        "indicator_type":   "ip",
-        "indicator_value":  src_ip,
-        "source_host":      resolve_hostname(src_ip),
+        "alert_id": f"SOC-{uuid.uuid4().hex[:8].upper()}",
+        "alert_type": rule["alert_type"],
+        "indicator_type": "ip",
+        "indicator_value": src_ip,
+        "source_host": resolve_hostname(src_ip),
         "destination_host": DESTINATION_HOST,
-        "destination_ip":   DESTINATION_IP,
-        "protocol":         rule["protocol"].upper(),
-        "rule_id":          rule["id"],
+        "destination_ip": DESTINATION_IP,
+        "protocol": rule["protocol"].upper(),
+        "rule_id": rule["id"],
         "evidence": {
-            "packet_count":        count,
+            "packet_count": count,
             "time_window_seconds": rule["time_window"],
-            "threshold":           rule["threshold"],
-            "data_source":         "traffic.pcap"
+            "threshold": rule["threshold"],
+            "data_source": "traffic.pcap"
         },
         "analyst_question": "Is this expected activity or a genuine threat?"
     }
 
 
 def send_to_airia(alert: dict) -> dict:
-    """Send alert to Airia and return parsed SOC report."""
     headers = {
         "Content-Type": "application/json",
-        "X-API-KEY":    AIRIA_API_KEY
+        "X-API-KEY": AIRIA_API_KEY
     }
     payload = {
-        "userInput":   json.dumps(alert),
+        "userInput": json.dumps(alert),
         "asyncOutput": False
     }
     print("\n[Airia] Sending alert...")
@@ -117,26 +118,26 @@ def send_to_airia(alert: dict) -> dict:
 
 def print_report(report: dict) -> None:
     ICONS = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🟢"}
-    risk  = report.get("risk_level", "Unknown")
+    risk = report.get("risk_level", "Unknown")
     mitre = report.get("mitre_mapping", {})
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  🛡️  AIRIA SOC ANALYSIS REPORT")
-    print("="*60)
-    print(f"  Alert ID    : {report.get('alert_id')}")
-    print(f"  Risk Level  : {ICONS.get(risk,'⚪')} {risk}")
-    print(f"  Risk Score  : {report.get('risk_score')}/100")
-    print(f"  Confidence  : {report.get('confidence_level')}")
-    print(f"  Escalate    : {'⚠️  YES' if report.get('escalation_required') else '✅ No'}")
+    print("=" * 60)
+    print(f"  Alert ID   : {report.get('alert_id')}")
+    print(f"  Risk Level : {ICONS.get(risk, '⚪')} {risk}")
+    print(f"  Risk Score : {report.get('risk_score')}/100")
+    print(f"  Confidence : {report.get('confidence_level')}")
+    print(f"  Escalate   : {'⚠️  YES' if report.get('escalation_required') else '✅ No'}")
     if isinstance(mitre, dict):
-        print(f"  MITRE       : {mitre.get('technique_id')} — {mitre.get('technique_name')}")
+        print(f"  MITRE      : {mitre.get('technique_id')} — {mitre.get('technique_name')}")
     print(f"\n  Summary: {report.get('executive_summary')}")
     actions = report.get("recommended_actions", [])
     if actions:
         print("\n  Actions:")
         for i, a in enumerate(actions, 1):
             print(f"    {i}. {a}")
-    print("="*60)
+    print("=" * 60)
 
 
 def main() -> None:
@@ -150,7 +151,8 @@ def main() -> None:
     if args.list:
         for r in load_rules():
             status = "✅" if r.get("enabled") else "❌"
-            print(f"  {status} {r['id']}: {r['name']} (threshold={r['threshold']}, window={r['time_window']}s)")
+            print(f"  {status} {r['id']}: {r['name']} "
+                  f"(threshold={r['threshold']}, window={r['time_window']}s)")
         return
 
     validate_config()
@@ -163,9 +165,8 @@ def main() -> None:
         raise SystemExit(1)
 
     session_id = uuid.uuid4().hex[:8].upper()
-    os.makedirs("/home/kali/soc-lab/logs", exist_ok=True)
 
-    print(f"\n{'='*55}")
+    print(f"\n{'=' * 55}")
     print(f"  AIRIA SOC MONITOR v2")
     print(f"  Rule      : {rule['id']} — {rule['name']}")
     print(f"  Target    : {DESTINATION_IP}")
@@ -173,7 +174,7 @@ def main() -> None:
     print(f"  Window    : {rule['time_window']}s")
     print(f"  Threshold : {rule['threshold']}")
     print(f"  Session   : {session_id}")
-    print(f"{'='*55}\n")
+    print(f"{'=' * 55}\n")
 
     create_session(session_id, INTERFACE, rule["time_window"], rule["id"])
 
@@ -181,13 +182,14 @@ def main() -> None:
         src_ip, count = run_rule(rule, PCAP_FILE, CSV_FILE)
 
         if src_ip:
-            alert      = build_alert(rule, src_ip, count)
+            alert = build_alert(rule, src_ip, count)
             soc_report = send_to_airia(alert)
             print_report(soc_report)
+
             save_alert(alert, soc_report, session_id)
             complete_session(session_id, count, 1)
-            # Save clean report to file
-            report_path = f"/home/kali/soc-lab/logs/{alert['alert_id']}_report.json"
+
+            report_path = LOG_DIR / f"{alert['alert_id']}_report.json"
             with open(report_path, "w") as f:
                 json.dump(soc_report, f, indent=2)
             print(f"\n[+] Report saved: {report_path}")
@@ -200,8 +202,7 @@ def main() -> None:
     except RuntimeError as e:
         print(f"\n[!] {e}")
     except requests.exceptions.ConnectionError:
-        print("\n[!] Cannot reach Airia API.")
-        print("[!] Fix: sudo dhclient eth1 && sudo ip route add default via 10.0.2.2 dev eth1")
+        print("\n[!] Cannot reach Airia API. Check internet connection.")
     except requests.exceptions.HTTPError as e:
         print(f"\n[!] Airia error: {e}")
     except KeyboardInterrupt:

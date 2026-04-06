@@ -40,8 +40,8 @@ INTERFACE=2      # use the number, not eth0
 # Terminal 1: 15-second test capture
 sudo tshark -i eth0 -f "icmp and dst host 192.168.56.20" -a duration:15
 
-# Windows VM immediately: send test pings
-ping 192.168.56.20 -n 5
+# Arch Linux VM immediately: send test pings
+ping 192.168.56.20 -c 5
 ```
 If nothing appears → wrong interface. Try `eth1` or use interface number from `tshark -D`.
 
@@ -146,11 +146,13 @@ print('KEY:', 'SET' if os.getenv('AIRIA_API_KEY') else 'NOT FOUND')
 
 ## VMs Cannot Ping Each Other
 
-**Windows can't receive pings from Kali:**
-```cmd
-rem Windows VM — CMD as Administrator
-netsh advfirewall firewall add rule name="ICMP In" protocol=icmpv4:8,any dir=in action=allow
-netsh advfirewall firewall add rule name="ICMP Out" protocol=icmpv4:8,any dir=out action=allow
+**Arch Linux not sending pings / firewall blocking:**
+```bash
+# On Arch Linux VM
+sudo nft flush ruleset   # temporarily disable nftables
+ping 192.168.56.20 -c 4  # test connectivity
+# Re-enable after confirming connectivity works
+sudo nft -f /etc/nftables.conf
 ```
 
 **Kali not responding to pings:**
@@ -162,7 +164,7 @@ sudo ufw disable
 
 **Neither can reach each other:**
 - Check both VMs have Host-Only Adapter 2 enabled in VirtualBox settings
-- Confirm IPs: `ip a` on Kali, `ipconfig` on Windows
+- Confirm IPs: `ip a` on Kali, `ip a` on Arch Linux
 
 ---
 
@@ -188,7 +190,7 @@ pip install -r requirements.txt
 #!/bin/bash
 echo "=== SOC Lab Status ==="
 ip a show eth0 | grep "inet " && echo "✅ Kali IP set" || echo "❌ No IP on eth0"
-ping -c1 -W1 192.168.56.10 >/dev/null && echo "✅ Windows reachable" || echo "❌ Windows unreachable"
+ping -c1 -W1 192.168.56.10 >/dev/null && echo "✅ Arch Linux reachable" || echo "❌ Arch Linux unreachable"
 ping -c1 -W2 8.8.8.8 >/dev/null && echo "✅ Internet working" || echo "❌ No internet"
 tshark --version >/dev/null 2>&1 && echo "✅ tshark OK" || echo "❌ tshark missing"
 [ -f ~/soc-lab/config/.env ] && echo "✅ .env exists" || echo "❌ .env missing"

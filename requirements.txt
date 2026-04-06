@@ -1,5 +1,20 @@
-# SOC Lab — Python Dependencies
-# Install with: pip install -r requirements.txt
+# requirements.txt — SOC Lab
+# Phase 3 (updated 2026-04-06)
 
-requests==2.31.0
-python-dotenv==1.0.0
+# Core
+flask>=3.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+pyyaml>=6.0.1
+
+# Database
+# sqlite3 (stdlib — no pip install needed)
+
+# Detection / Analysis
+# tshark (system package — apt install tshark)
+
+# Testing
+pytest>=7.4.0
+
+# PDF generation (optional — used for report export)
+fpdf2>=2.8.0
