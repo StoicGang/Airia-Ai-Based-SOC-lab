@@ -110,11 +110,34 @@ ping 192.168.56.20 -c 200 -s 64
 
 ---
 
+## Risk Management
+
+Risk tracking is built into the project lifecycle, not bolted on after deployment. Every phase introduces new components and new attack surface — the risk module ensures threats are identified, scored, and mitigated before they become incidents.
+
+| Document | Purpose |
+|----------|---------|
+| [`risk/risk_register.md`](risk/risk_register.md) | Full risk register — 31 risks across all phases with scoring, mitigations, and residual risk |
+| [`risk/risk_register.csv`](risk/risk_register.csv) | Machine-readable version for automated processing |
+| [`risk/risk_methodology.md`](risk/risk_methodology.md) | Scoring formula, risk levels, treatment strategies, and lifecycle process (ISO 31000 aligned) |
+| [`risk/phase4_risk_plan.md`](risk/phase4_risk_plan.md) | Pre-implementation risk analysis for Phases 4, 5, and 6 |
+
+**How risk integrates with development:**
+
+- **Phases 1–3 (complete):** Risks identified retrospectively — pipeline reliability, AI hallucination, dashboard security, SIEM integration stability
+- **Phase 4 (planned):** Alert ingestion failure, duplicate cases, Cortex automation errors, MISP feed poisoning, case misclassification
+- **Phase 5 (planned):** Model drift, data poisoning, memory corruption, over-reliance on AI consensus
+- **Phase 6 (planned):** Wrong automated blocking, system abuse via spoofed triggers, privilege escalation, lack of human oversight
+
+The risk register is a living document — it evolves with every phase milestone and is reviewed quarterly.
+
+---
+
 ## Docs
 
 - [Setup Guide](docs/setup-guide.md)
 - [Architecture](docs/architecture.md)
 - [AI Playbook](docs/airia-playbook.md)
+- [Risk Methodology](risk/risk_methodology.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Changelog](CHANGELOG.md)
 
