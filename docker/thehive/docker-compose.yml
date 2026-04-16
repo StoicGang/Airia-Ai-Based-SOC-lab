@@ -1,0 +1,63 @@
+version: "3.8"
+
+# TheHive 5.2 + Elasticsearch 7.17.9
+# Network: thehive-net (bridge) — Cortex and MISP join via external reference
+# RAM budget: ES ~512MB heap, TheHive ~512MB heap (tight lab config)
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    container_name: thehive-es
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - cluster.name=thehive-cluster
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - thehive-es-data:/usr/share/elasticsearch/data
+    networks:
+      - thehive-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  thehive:
+    image: strangebee/thehive:5.2
+    container_name: thehive
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      - JVM_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - thehive-data:/opt/thp/thehive/data
+      - thehive-index:/opt/thp/thehive/index
+      - ./application.conf:/etc/thehive/application.conf:ro
+    networks:
+      - thehive-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  thehive-es-data:
+  thehive-data:
+  thehive-index:
+
+networks:
+  thehive-net:
+    driver: bridge
+    name: thehive_thehive-net
